@@ -396,6 +396,9 @@ $(window).on('load', function() {
       };
 
       polygonsLegend.addTo(map);
+      if (getPolygonSetting(p, '_polygonsLegendPosition') == 'off') {
+        $('.polygons-legend' + p).css('display', 'none');
+      }
       allPolygonLegends.push(polygonsLegend);
 
       p++;
@@ -640,16 +643,30 @@ $(window).on('load', function() {
       completePolygons = true;
     }
 
-    // Add Mapzen search control
+    // Add Nominatim Search control
     if (getSetting('_mapSearch') !== 'off') {
-      L.control.geocoder(getSetting('_mapSearchKey'), {
-        focus: true,
+      var geocoder = L.Control.geocoder({
+        expand: 'click',
         position: getSetting('_mapSearch'),
-        zoom: trySetting('_mapSearchZoom', 12),
-        circle: true,
-        circleRadius: trySetting('_mapSearchCircleRadius', 1),
-        autocomplete: true,
+        geocoder: new L.Control.Geocoder.Nominatim({
+          geocodingQueryParams: {
+            viewbox: [],  // by default, viewbox is empty
+            bounded: 0,
+          }
+        }),
       }).addTo(map);
+
+      function updateGeocoderBounds() {
+        var bounds = map.getBounds();
+        var mapBounds = [
+          bounds._southWest.lat, bounds._northEast.lat,
+          bounds._southWest.lng, bounds._northEast.lng,
+        ];
+        geocoder.options.geocoder.options.geocodingQueryParams.viewbox = mapBounds;
+      }
+
+      // Update search viewbox coordinates every time the map moves
+      map.on('moveend', updateGeocoderBounds);
     }
 
     // Add location control
@@ -804,8 +821,10 @@ $(window).on('load', function() {
             + '"></i> ' + p[index]['Display Name']);
 
           if (index == 0) {
-            polylinesLegend._container.id = 'polylines-legend';
-            polylinesLegend._container.className += ' ladder';
+            if (polylinesLegend._container) {
+              polylinesLegend._container.id = 'polylines-legend';
+              polylinesLegend._container.className += ' ladder';
+            }
 
             if (getSetting('_polylinesLegendTitle') != '') {
               $('#polylines-legend').prepend('<h6 class="pointer">' + getSetting('_polylinesLegendTitle') + '</h6>');
